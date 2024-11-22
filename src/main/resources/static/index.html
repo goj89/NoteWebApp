@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note App</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #notes { margin-top: 20px; }
+        .note { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
+        .note-details { margin-top: 20px; }
+    </style>
+</head>
+<body>
+<h1>Note App</h1>
+
+<h2 id="form-title">Aggiungi una Nota</h2>
+<form id="noteForm">
+    <input type="text" id="titolo" placeholder="Titolo" required>
+    <textarea id="contenuto" placeholder="Contenuto" required></textarea>
+    <button type="submit">Salva</button>
+</form>
+
+<h2>Le tue Note</h2>
+<div id="notes"></div>
+
+<div class="note-details" id="noteDetails" style="display: none;">
+    <h2>Dettagli della Nota</h2>
+    <div id="noteDetailContent"></div>
+    <button onclick="showEditForm()">Modifica</button>
+    <button onclick="deleteNote()">Elimina</button>
+</div>
+
+<script>
+        const API_URL = '/api/note';
+        let currentNoteId = null;
+
+
+        function loadNotes() {
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(notes => {
+                    const notesDiv = document.getElementById('notes');
+                    notesDiv.innerHTML = '';
+                    notes.forEach(note => {
+                        const noteDiv = document.createElement('div');
+                        noteDiv.className = 'note';
+                        noteDiv.innerHTML = `
+                            <strong>${note.titolo}</strong>
+                            <p>${note.contenuto}</p>
+                            <button onclick="viewNoteDetails(${note.id})">Visualizza Dettagli</button>
+                        `;
+                        notesDiv.appendChild(noteDiv);
+                    });
+                })
+                .catch(error => console.error('Error loading notes:', error));
+        }
+
+
+        function viewNoteDetails(id) {
+            fetch(`${API_URL}/${id}`)
+                .then(response => response.json())
+                .then(note => {
+                    document.getElementById('noteDetails').style.display = 'block';
+                    document.getElementById('noteDetailContent').innerHTML = `
+                        <strong>${note.titolo}</strong><br>
+                        <p>${note.contenuto}</p>
+                    `;
+                    currentNoteId = id;
+                    document.getElementById('form-title').innerText = 'Modifica Nota';
+                    document.getElementById('titolo').value = note.titolo;
+                    document.getElementById('contenuto').value = note.contenuto;
+                })
+                .catch(error => console.error('Error loading note details:', error));
+        }
+
+
+        function showEditForm() {
+            document.getElementById('noteDetails').style.display = 'none';
+            document.getElementById('form-title').innerText = 'Modifica Nota';
+        }
+
+
+        function deleteNote() {
+            fetch(`${API_URL}/${currentNoteId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    loadNotes();
+                    document.getElementById('noteDetails').style.display = 'none';
+                } else {
+                    alert('Errore nell\'eliminazione della nota.');
+                }
+            })
+            .catch(error => console.error('Error deleting note:', error));
+        }
+
+
+        document.getElementById('noteForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const titolo = document.getElementById('titolo').value;
+            const contenuto = document.getElementById('contenuto').value;
+
+            const nota = { titolo, contenuto };
+
+            let method = 'POST';
+            let url = API_URL;
+
+            if (currentNoteId) {
+                method = 'PUT';
+                url = `${API_URL}/${currentNoteId}`;
+                nota.id = currentNoteId;
+            }
+
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nota)
+            })
+            .then(response => response.json())
+            .then(() => {
+                loadNotes();
+                document.getElementById('noteForm').reset();
+                currentNoteId = null;
+                document.getElementById('form-title').innerText = 'Aggiungi una Nota';
+                document.getElementById('noteDetails').style.display = 'none';
+            })
+            .catch(error => console.error('Error saving note:', error));
+        });
+
+
+        loadNotes();
+    </script>
+</body>
+</html>
